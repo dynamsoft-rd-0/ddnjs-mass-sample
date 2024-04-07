@@ -3,20 +3,25 @@
 
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- latest version -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/dynamsoft-core@3.2.10/dist/core.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-license@3.2.10/dist/license.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-utility@1.2.10/dist/utility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-router@2.2.10/dist/cvr.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-document-normalizer@2.2.10-beta-202403290247/dist/ddn.js"></script> -->
 
+    <!-- previous version -->
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-core@3.0.30/dist/core.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-license@3.0.20/dist/license.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-utility@1.0.21/dist/utility.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-router@2.0.30/dist/cvr.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-document-normalizer@2.0.21/dist/ddn.js"></script>
 
+    <!-- pls use this version of dce which convert `position error` to warn -->
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@4.0.2/dist/dce.js"></script>
 
+    <!-- a console tool to debug in mobile -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/eruda/2.4.1/eruda.min.js"></script>
 </head>
 
@@ -28,14 +33,10 @@
     <script>
         eruda.init();
 
-        const cameraViewContainer = document.querySelector(
-            "#cameraViewContainer"
-        );
+        const cameraViewContainer = document.querySelector("#cameraViewContainer");
         let router;
         let cameraEnhancer;
-        Dynamsoft.License.LicenseManager.initLicense(
-                "DLS2eyJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9"
-        );
+        Dynamsoft.License.LicenseManager.initLicense("DLS2eyJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9");
         Dynamsoft.Core.CoreModule.loadWasm(["DDN"]);
 
         document.getElementById('btn-start-detection').addEventListener('click', async function startDetection() {
