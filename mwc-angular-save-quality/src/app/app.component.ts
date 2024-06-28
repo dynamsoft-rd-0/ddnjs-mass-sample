@@ -8,7 +8,8 @@ export interface CapturedImages {
   originalBlob?: Blob,
   originalImage?: string,
   detectedBlob?: Blob,
-  detectedImage?: string
+  detectedImage?: string,
+  bGray?: boolean
 }
 
 @Component({
@@ -28,8 +29,10 @@ export class AppComponent {
   showCaptureViewer: boolean = true;
   images: CapturedImages = {
     originalImage: '',
-    detectedImage: ''
+    detectedImage: '',
+    bGray: false
   };
+  
   switchVisibility = (value: boolean) => {
     this.showCaptureViewer = value
   };
@@ -47,6 +50,7 @@ export class AppComponent {
       value.detectedImage = URL.createObjectURL(value.detectedBlob);
     }
     this.images =  value;
+    this.images.bGray = value.bGray;
     //console.log(value);//debug
   };
 }

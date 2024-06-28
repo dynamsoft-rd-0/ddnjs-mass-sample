@@ -19,12 +19,59 @@ import 'dynamsoft-document-normalizer';
   styleUrl: './capture-viewer.component.css'
 })
 
+
 export class CaptureViewerComponent {
   @Input() showCaptureViewer: boolean = true;
   @Input() switchVisibility: (value: boolean) => void = () => {};
   @Input() setImages: (value: CapturedImages) => void = () => {};
   captureViewer: CaptureViewer | null = null;
+  bGray: boolean = false;
 
+  onCaptureGray() {
+    console.log('onCaptureGray');
+    this.bGray = true;
+    this.captureViewer?.capture();
+  }
+
+  onCaptureColor() {
+    console.log('onCaptureColor');
+    this.bGray = false;
+    this.captureViewer?.capture();
+  }
+
+  async convertToGray(origBlob: Blob) {
+    let canvas = document.createElement('canvas');
+    let image = new Image();
+    await new Promise((rs, rj)=>{
+      image.onload = rs;
+      image.onerror = rj;
+      image.src = URL.createObjectURL(origBlob);
+    });
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    let ctx = canvas.getContext('2d')!;
+    ctx.drawImage(image, 0, 0);
+
+    // gray image
+    let imgData = ctx.getImageData(0, 0, image.naturalWidth, image.naturalHeight);
+    let data = imgData.data;
+    for(let i = 0; i < data.length; i+=4){
+      data[i] = data[i + 1] = data[i + 2] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Rebuild the blob
+    let ret;
+    await new Promise<void>(rs=>{
+      canvas.toBlob(_blob => {
+        ret = _blob!;
+        rs();
+      }, 'jpeg');
+    });
+
+    return ret;
+  }
+  
   async ngOnInit() {
     CoreModule.engineResourcePaths = {
       rootDirectory: "https://cdn.jsdelivr.net/npm/",
@@ -48,6 +95,65 @@ export class CaptureViewerComponent {
 
     this.captureViewer = new DDV.CaptureViewer({
       container: 'viewerContainer',
+      
+      uiConfig: {
+        type: DDV.Elements.Layout,
+        flexDirection: "column",
+        className: "ddv-capture-viewer-desktop",
+        children: [
+          {
+            type: DDV.Elements.Layout,
+            className: "ddv-capture-viewer-header-desktop", 
+            children: [
+              {
+                type: DDV.Elements.Layout,
+                className: "ddv-capture-viewer-header-desktop", 
+                children:[
+                  {
+                    type: DDV.Elements.CameraResolution,
+                    className: "ddv-capture-viewer-resolution-desktop"
+                  },
+                  DDV.Elements.AutoDetect, 
+                  {
+                    type: DDV.Elements.Button,
+                    className: "menuIcon Capture Color",
+                    label: "Capture Color",
+                    style: {
+                      width: "100px",
+                      height: "30px",
+                      border: "solid 1px #CCC",
+                      margin: "0 10px"
+                    },
+                    events: {
+                      "click": () => {this.onCaptureColor()},
+                    }
+                  },
+                  {
+                    type: DDV.Elements.Button,
+                    className: "menuIcon Capture Gray",
+                    label: "Capture Gray",
+                    style: {
+                      width: "100px",
+                      height: "30px",
+                      border: "solid 1px #CCC",
+                      margin: "0 10px"
+                    },
+                    events: {
+                      "click": () => {this.onCaptureGray()},
+                    }
+                  },
+                  DDV.Elements.AutoCapture
+                ]
+              }
+            ]
+          },
+          DDV.Elements.MainView,
+          {
+            type: DDV.Elements.ImagePreview, 
+            className: "ddv-capture-viewer-image-preview-desktop"
+          }
+        ]
+      },
       viewerConfig: {
         acceptedPolygonConfidence: 60,
         enableAutoDetect: true
@@ -62,11 +168,21 @@ export class CaptureViewerComponent {
       const doc = (this.captureViewer as CaptureViewer).currentDocument as IDocument;
       const pageData = await doc.getPageData(e.pageUid) as any;
       this.switchVisibility(false);
+      
+      let originalBlob, detectedBlob;
+      if(this.bGray) {
+        console.log('convert to gray');
+        originalBlob = await this.convertToGray(pageData.raw.data);
+        detectedBlob = await this.convertToGray(pageData.display.data);
+      } else {
+        originalBlob = pageData.raw.data;
+        detectedBlob = pageData.display.data;
+      }
+
       this.setImages({
-        originalBlob: pageData.raw.data,
-        //originalImage: URL.createObjectURL(pageData.raw.data),
-        detectedBlob: pageData.display.data,
-        //detectedImage: URL.createObjectURL(pageData.display.data)
+        originalBlob: originalBlob,
+        detectedBlob: detectedBlob,
+        bGray: this.bGray
       })
     });
   }
