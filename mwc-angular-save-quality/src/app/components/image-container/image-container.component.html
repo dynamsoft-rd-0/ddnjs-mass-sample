@@ -1,0 +1,16 @@
+<div 
+    class= "image-container" 
+    [style.display]= "showCaptureViewer? 'none' : ''"
+>
+    <div class="restore-button" (click)="switchVisibility(true)">Restore</div>
+    <span>Original Image:</span>
+    <button (click)="saveOriginalGray()">save as gray</button>
+    <button (click)="saveOriginalColor()">save as color</button>
+    <button (click)="saveOriginalPdf()">save as pdf</button>
+    <img alt="" [src]="images.originalImage"/>
+    <span>Normalized Image:</span>
+    <button (click)="saveNormalizedGray()">save as gray</button>
+    <button (click)="saveNormalizedColor()">save as color</button>
+    <button (click)="saveNormalizedPdf()">save as pdf</button>
+    <img alt="" [src]="images.detectedImage"/>
+</div>
