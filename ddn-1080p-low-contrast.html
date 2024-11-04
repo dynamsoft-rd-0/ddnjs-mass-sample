@@ -457,13 +457,14 @@
       newSettings.roi.points = quad.points;
       await router.updateSettings("NormalizeDocument_Default", newSettings);
       /* Executes the normalization and shows the result on the page. */
-      let normalizeResult = await router.capture(originalImageData, "NormalizeDocument_Default");
+      normalizeResult = await router.capture(originalImageData, "NormalizeDocument_Default");
       if (normalizeResult.items[0]) {
         normalizedImageContainer.append(normalizeResult.items[0].toCanvas());
       }
       layer.clearDrawingItems();
       btnNormalize.disabled = true;
       btnEdit.disabled = true;
+      btnSavePng.style.display = "inline";
     });
   </script>
 </body>
