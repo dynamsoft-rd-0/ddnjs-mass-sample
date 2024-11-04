@@ -7,11 +7,7 @@
   <meta name="description" content="Quickly detect document boundaries from a live camera stream and crop the document out before normalizing it further through perspective correction, deskewing, and more." />
   <meta name="keywords" content="camera based quadrilateral detection and normalization" />
   <title>Detect the boundary of a document and normalize it</title>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-core@3.4.20/dist/core.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-license@3.4.20/dist/license.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-document-normalizer@2.4.20/dist/ddn.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-router@2.4.20/dist/cvr.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@4.1.0/dist/dce.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-bundle@2.4.2200/dist/dcv.bundle.js"></script>
 </head>
 
 <body>
@@ -20,6 +16,7 @@
   </h1>
   <button id="start-detecting">Start Detecting</button>
   <button id="restart-detecting" style="display: none">Restart Detecting</button>
+  <button id="save-as-png" style="display: none">Save as PNG</button>  
   <button id="confirm-quad-for-normalization">Confirm the Boundary</button>
   <button id="normalize-with-confirmed-quad" disabled>Normalize</button><br />
   <input type="checkbox" style="vertical-align: middle" id="auto-normalize" /><label style="vertical-align: middle" for="auto-normalize">Normalize Automatically</label>
@@ -30,15 +27,18 @@
     let quads = [];
     let cameraEnhancer = null;
     let router = null;
+    let imageManager = null;
     let items;
     let layer;
     let originalImage;
     let imageEditorView;
     let promiseCVRReady;
     let frameCount = 0;
+    let normalizeResult;
 
     const btnStart = document.querySelector("#start-detecting");
     const btnRestart = document.querySelector("#restart-detecting");
+    const btnSavePng = document.querySelector("#save-as-png");
     const cameraViewContainer = document.querySelector("#div-ui-container");
     const normalizedImageContainer = document.querySelector("#normalized-result");
     const btnEdit = document.querySelector("#confirm-quad-for-normalization");
@@ -82,218 +82,220 @@
       router = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
       router.setInput(cameraEnhancer);
       const DDNsettings = {
-
-CaptureVisionTemplates: [
-  {
-    ImageROIProcessingNameArray: ["roi-detect-document-boundaries"],
-    ImageSource: "",
-    MaxParallelTasks: 4,
-    MinImageCaptureInterval: 0,
-    Name: "DetectDocumentBoundaries_Default",
-    OutputOriginalImage: 1,
-    SemanticProcessingNameArray: null,
-    Timeout: 10000,
-  },
-  {
-    Name: "NormalizeDocument_Default",
-    ImageROIProcessingNameArray: ["roi-normalize-docs"]
-  }
-],
-  DocumentNormalizerTaskSettingOptions: [
-    {
-
-      BaseDocumentNormalizerTaskSettingName: "",
-      Brightness: 0,
-      ColourMode: "ICM_COLOUR",
-      ContentType: "CT_DOCUMENT",
-      Contrast: 0,
-      CornerAngleRange: {
-        MaxValue: 110,
-        MinValue: 70,
-      },
-      DeskewMode: {
-        ContentDirection: 0,
-        Mode: "DM_PERSPECTIVE_CORRECTION",
-      },
-      LineExtractionModes: [
+      CaptureVisionTemplates: [
         {
-          Mode: "LEM_GENERAL",
+          ImageROIProcessingNameArray: ["roi-detect-document-boundaries"],
+          ImageSource: "",
+          MaxParallelTasks: 4,
+          MinImageCaptureInterval: 0,
+          Name: "DetectDocumentBoundaries_Default",
+          OutputOriginalImage: 1,
+          SemanticProcessingNameArray: null,
+          Timeout: 10000,
         },
+        {
+          Name: "NormalizeDocument_Default",
+          ImageROIProcessingNameArray: ["roi-normalize-docs"]
+        }
       ],
-      MaxThreadsInOneTask: 4,
-      Name: "task-detect-document-boundaries",
-      PageSize: [-1, -1],
-      QuadrilateralDetectionModes:
-        [
+        DocumentNormalizerTaskSettingOptions: [
           {
-            "Mode": "QDM_GENERAL",
-            "MinQuadrilateralAreaRatio": 0
+      
+            BaseDocumentNormalizerTaskSettingName: "",
+            Brightness: 0,
+            ColourMode: "ICM_COLOUR",
+            ContentType: "CT_DOCUMENT",
+            Contrast: 0,
+            CornerAngleRange: {
+              MaxValue: 110,
+              MinValue: 70,
+            },
+            DeskewMode: {
+              ContentDirection: 0,
+              Mode: "DM_PERSPECTIVE_CORRECTION",
+            },
+            LineExtractionModes: [
+              {
+                Mode: "LEM_GENERAL",
+              },
+            ],
+            MaxThreadsInOneTask: 4,
+            Name: "task-detect-document-boundaries",
+            PageSize: [-1, -1],
+            QuadrilateralDetectionModes:
+              [
+                {
+                  "Mode": "QDM_GENERAL",
+                  "MinQuadrilateralAreaRatio": 0
+                }
+              ],
+            ExpectedDocumentsCount: 1,
+            SectionImageParameterArray: [
+              {
+                ContinueWhenPartialResultsGenerated: 1,
+                ImageParameterName: "ip-detect",
+                Section: "ST_REGION_PREDETECTION",
+              },
+              {
+                ContinueWhenPartialResultsGenerated: 1,
+                ImageParameterName: "ip-detect",
+                Section: "ST_DOCUMENT_DETECTION",
+              },
+              {
+                ContinueWhenPartialResultsGenerated: 1,
+                ImageParameterName: "ip-detect",
+                Section: "ST_DOCUMENT_NORMALIZATION",
+              },
+            ],
+            StartSection: "ST_REGION_PREDETECTION",
+            TerminateSetting: {
+              Section: "ST_DOCUMENT_DETECTION",
+              Stage: "IRUT_NULL",
+            },
+          },
+          {
+            Name: "task-normalize-docs",
+            StartSection: "ST_DOCUMENT_NORMALIZATION"
           }
         ],
-      ExpectedDocumentsCount: 1,
-      SectionImageParameterArray: [
+          GlobalParameter: {
+        MaxTotalImageDimension: 0,
+      },
+      ImageParameterOptions: [
         {
-          ContinueWhenPartialResultsGenerated: 1,
-          ImageParameterName: "ip-detect",
-          Section: "ST_REGION_PREDETECTION",
-        },
-        {
-          ContinueWhenPartialResultsGenerated: 1,
-          ImageParameterName: "ip-detect",
-          Section: "ST_DOCUMENT_DETECTION",
-        },
-        {
-          ContinueWhenPartialResultsGenerated: 1,
-          ImageParameterName: "ip-detect",
-          Section: "ST_DOCUMENT_NORMALIZATION",
+          BaseImageParameterName: "",
+          BinarizationModes: [
+            {
+              BinarizationThreshold: -1,
+              BlockSizeX: 7,
+              BlockSizeY: 7,
+              EnableFillBinaryVacancy: 0,
+              GrayscaleEnhancementModesIndex: -1,
+              Mode: "BM_LOCAL_BLOCK",
+              MorphOperation: "Close",
+              MorphOperationKernelSizeX: 3,
+              MorphOperationKernelSizeY: 3,
+              MorphShape: "Rectangle",
+              ThresholdCompensation: 4,
+            },
+          ],
+          ColourConversionModes: [
+            {
+              BlueChannelWeight: -1,
+              GreenChannelWeight: -1,
+              Mode: "CICM_GENERAL",
+              RedChannelWeight: -1,
+              ReferChannel: "H_CHANNEL",
+            },
+            {
+              Mode: "CICM_HSV",
+              ReferChannel: "H_CHANNEL",
+            },
+          ],
+          GrayscaleEnhancementModes: [
+            {
+              Mode: "GEM_SHARPEN_SMOOTH",
+              SharpenBlockSizeX: 3,
+              SharpenBlockSizeY: 3,
+              SmoothBlockSizeX: 3,
+              SmoothBlockSizeY: 3,
+            },
+          ],
+          GrayscaleTransformationModes: [
+            {
+              Mode: "GTM_ORIGINAL",
+            },
+          ],
+          IfEraseTextZone: 0,
+          Name: "ip-detect",
+          RegionPredetectionModes: [
+            {
+              AspectRatioRange: "[]",
+              FindAccurateBoundary: 0,
+              ForeAndBackgroundColours: "[]",
+              HeightRange: "[]",
+              ImageParameterName: "",
+              MeasuredByPercentage: 1,
+              MinImageDimension: 262144,
+              Mode: "RPM_GENERAL",
+              RelativeRegions: "[]",
+              Sensitivity: 1,
+              SpatialIndexBlockSize: 5,
+              WidthRange: "[]",
+            },
+          ],
+          ScaleDownThreshold: 512,
+          ScaleUpModes: [
+            {
+              AcuteAngleWithXThreshold: -1,
+              LetterHeightThreshold: 0,
+              Mode: "SUM_AUTO",
+              ModuleSizeThreshold: 0,
+              TargetLetterHeight: 0,
+              TargetModuleSize: 0,
+            },
+          ],
+          TextDetectionMode: {
+            CharHeightRange: [1, 1000, 1],
+            Direction: "HORIZONTAL",
+            MaxSpacingInALine: -1,
+            Mode: "TTDM_WORD",
+            Sensitivity: 7,
+            StringLengthRange: null,
+          },
+          TextureDetectionModes: [
+            {
+              Mode: "TDM_GENERAL_WIDTH_CONCENTRATION",
+              Sensitivity: 5,
+            },
+          ],
         },
       ],
-      StartSection: "ST_REGION_PREDETECTION",
-      TerminateSetting: {
-        Section: "ST_DOCUMENT_DETECTION",
-        Stage: "IRUT_NULL",
-      },
-    },
-    {
-      Name: "task-normalize-docs",
-      StartSection: "ST_DOCUMENT_NORMALIZATION"
-    }
-  ],
-    GlobalParameter: {
-  MaxTotalImageDimension: 0,
-},
-ImageParameterOptions: [
-  {
-    BaseImageParameterName: "",
-    BinarizationModes: [
-      {
-        BinarizationThreshold: -1,
-        BlockSizeX: 7,
-        BlockSizeY: 7,
-        EnableFillBinaryVacancy: 0,
-        GrayscaleEnhancementModesIndex: -1,
-        Mode: "BM_LOCAL_BLOCK",
-        MorphOperation: "Close",
-        MorphOperationKernelSizeX: 3,
-        MorphOperationKernelSizeY: 3,
-        MorphShape: "Rectangle",
-        ThresholdCompensation: 4,
-      },
-    ],
-    ColourConversionModes: [
-      {
-        BlueChannelWeight: -1,
-        GreenChannelWeight: -1,
-        Mode: "CICM_GENERAL",
-        RedChannelWeight: -1,
-        ReferChannel: "H_CHANNEL",
-      },
-      {
-        Mode: "CICM_HSV",
-        ReferChannel: "H_CHANNEL",
-      },
-    ],
-    GrayscaleEnhancementModes: [
-      {
-        Mode: "GEM_SHARPEN_SMOOTH",
-        SharpenBlockSizeX: 3,
-        SharpenBlockSizeY: 3,
-        SmoothBlockSizeX: 3,
-        SmoothBlockSizeY: 3,
-      },
-    ],
-    GrayscaleTransformationModes: [
-      {
-        Mode: "GTM_ORIGINAL",
-      },
-    ],
-    IfEraseTextZone: 0,
-    Name: "ip-detect",
-    RegionPredetectionModes: [
-      {
-        AspectRatioRange: "[]",
-        FindAccurateBoundary: 0,
-        ForeAndBackgroundColours: "[]",
-        HeightRange: "[]",
-        ImageParameterName: "",
-        MeasuredByPercentage: 1,
-        MinImageDimension: 262144,
-        Mode: "RPM_GENERAL",
-        RelativeRegions: "[]",
-        Sensitivity: 1,
-        SpatialIndexBlockSize: 5,
-        WidthRange: "[]",
-      },
-    ],
-    ScaleDownThreshold: 512,
-    ScaleUpModes: [
-      {
-        AcuteAngleWithXThreshold: -1,
-        LetterHeightThreshold: 0,
-        Mode: "SUM_AUTO",
-        ModuleSizeThreshold: 0,
-        TargetLetterHeight: 0,
-        TargetModuleSize: 0,
-      },
-    ],
-    TextDetectionMode: {
-      CharHeightRange: [1, 1000, 1],
-      Direction: "HORIZONTAL",
-      MaxSpacingInALine: -1,
-      Mode: "TTDM_WORD",
-      Sensitivity: 7,
-      StringLengthRange: null,
-    },
-    TextureDetectionModes: [
-      {
-        Mode: "TDM_GENERAL_WIDTH_CONCENTRATION",
-        Sensitivity: 5,
-      },
-    ],
-  },
-],
-  TargetROIDefOptions: [
-    {
-      BaseTargetROIDefName: "",
-      Location: {
-        Offset: {
-          FirstPoint: [0, 0, 1, 1],
-          FourthPoint: [0, 100, 1, 1],
-          MeasuredByPercentage: 1,
-          ReferenceObjectOriginIndex: 0,
-          ReferenceObjectType: "ROT_ATOMIC_OBJECT",
-          ReferenceXAxis: {
-            AxisType: "AT_MIDPOINT_EDGE",
-            EdgeIndex: 0,
-            LengthReference: "LR_X",
-            RotationAngle: 90,
+        TargetROIDefOptions: [
+          {
+            BaseTargetROIDefName: "",
+            Location: {
+              Offset: {
+                FirstPoint: [0, 0, 1, 1],
+                FourthPoint: [0, 100, 1, 1],
+                MeasuredByPercentage: 1,
+                ReferenceObjectOriginIndex: 0,
+                ReferenceObjectType: "ROT_ATOMIC_OBJECT",
+                ReferenceXAxis: {
+                  AxisType: "AT_MIDPOINT_EDGE",
+                  EdgeIndex: 0,
+                  LengthReference: "LR_X",
+                  RotationAngle: 90,
+                },
+                ReferenceYAxis: {
+                  AxisType: "AT_MIDPOINT_EDGE",
+                  EdgeIndex: 1,
+                  LengthReference: "LR_Y",
+                  RotationAngle: 90,
+                },
+                SecondPoint: [100, 0, 1, 1],
+                ThirdPoint: [100, 100, 1, 1],
+              },
+            },
+            Name: "roi-detect-document-boundaries",
+            PauseFlag: 0,
+            TaskSettingNameArray: ["task-detect-document-boundaries"],
           },
-          ReferenceYAxis: {
-            AxisType: "AT_MIDPOINT_EDGE",
-            EdgeIndex: 1,
-            LengthReference: "LR_Y",
-            RotationAngle: 90,
-          },
-          SecondPoint: [100, 0, 1, 1],
-          ThirdPoint: [100, 100, 1, 1],
-        },
-      },
-      Name: "roi-detect-document-boundaries",
-      PauseFlag: 0,
-      TaskSettingNameArray: ["task-detect-document-boundaries"],
-    },
-    {
-      Name: "roi-normalize-docs",
-      TaskSettingNameArray: ["task-normalize-docs"]
-    }
-  ],
-};
+          {
+            Name: "roi-normalize-docs",
+            TaskSettingNameArray: ["task-normalize-docs"]
+          }
+        ],
+      };
       await router.initSettings(DDNsettings);
 
       /* Defines the result receiver for the task.*/
       const resultReceiver = new Dynamsoft.CVR.CapturedResultReceiver();
       resultReceiver.onCapturedResultReceived = handleCapturedResult;
       router.addResultReceiver(resultReceiver);
+
+      /* Define imageManager for saving images*/
+      imageManager = new Dynamsoft.Utility.ImageManager();
     })();
 
     /**
@@ -341,12 +343,13 @@ ImageParameterOptions: [
           /**
            * After that, executes the normalization and shows the result on the page.
            */
-          let normalizeResult = await router.capture(originalImageData, "NormalizeDocument_Default");
+          normalizeResult = await router.capture(originalImageData, "NormalizeDocument_Default");
           normalizedImageContainer.append(normalizeResult.items[0].toCanvas());
           cameraViewContainer.style.display = "none";
           btnStart.style.display = "none";
           btnRestart.style.display = "inline";
           btnEdit.disabled = true;
+          btnSavePng.style.display = "inline";
           await router.stopCapturing();
         }
       }
@@ -380,6 +383,11 @@ ImageParameterOptions: [
       layer.clearDrawingItems();
 
       await router.startCapturing("DetectDocumentBoundaries_Default");
+    })
+
+    btnSavePng.addEventListener("click", async () => {
+      /* Save normalized image as .png file */
+      imageManager.saveToFile(normalizeResult.items[0].imageData, "test.png", true);
     })
 
     autoNormalize.addEventListener("change", () => {
